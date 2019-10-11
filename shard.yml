@@ -1,0 +1,15 @@
+name: raytracr
+version: 0.1.0
+
+authors:
+  - Amy <amy@fluff.tech>
+
+# description: |
+#   Short description of raytracr
+
+dependencies:
+  stumpy_png:
+    github: stumpycr/stumpy_png
+    version: "~> 4.5"
+
+# license: MIT
