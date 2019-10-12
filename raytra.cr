@@ -5,7 +5,7 @@ include StumpyPNG
 # ------------------------------------
 WIDTH = 640
 HEIGHT = 480
-MAX_DEPTH = 3
+MAX_DEPTH = 5
 BACKGROUND_COLOR = {0.5, 0.5, 0.5}
 FOV = 30
 # ------------------------------------
@@ -40,7 +40,7 @@ class Vec3
 		{x, y, z}
 	end
 	def normalize
-		mag = Math.sqrt(x ** 2 + y ** 2 + z ** 2)
+		mag = Math.sqrt(self.abs)
 		Vec3.new(x / mag, y / mag, z / mag)
 	end
 	def dot(vec)
@@ -51,18 +51,17 @@ Color = Vec3
 
 class Sphere
 	getter center, radius, color, reflect
-	def initialize(@center : Vec3, @radius : Float64, 
-	               @color : Vec3, @reflect : Float64)
+	def initialize(@center : Vec3, @radius  : Float64,
+	               @color  : Vec3, @reflect : Float64)
 	end
 	
 	def intersect(ray_orig, ray_dir)
 		dist = ray_orig - center
 		b = 2 * dist.dot(ray_dir)
+		return 1e8 if b > 0
 		c = dist.abs - radius ** 2
 		disc = (b ** 2) - (4 * c)
-		if disc < 0
-			return 1e8
-		end
+		return 1e8 if disc < 0
 		sq = Math.sqrt(disc)
 		t0 = (-b - sq) / 2
 		t1 = (-b + sq) / 2
@@ -70,6 +69,12 @@ class Sphere
 	end
 	def normal(intersect)
 		(intersect - center) / radius
+	end
+end
+
+struct PointLight
+	property pos, color
+	def initialize(@pos : Vec3, @color : Vec3)
 	end
 end
 
@@ -92,9 +97,32 @@ def raytrace(ray_orig, ray_dir, world, depth = 0)
 	
 	intersect = ray_orig + ray_dir * min_dist
 	normal = nearest_obj.normal(intersect).normalize
-	return normal
 	
-	#return nearest_obj.color
+	color = Color.new(0.05)
+	
+	test_light = PointLight.new(Vec3.new(0, 20, 10), Color.new(1))
+	
+	light_dir = (test_light.pos - intersect).normalize
+	origin_dir = (Vec3.new(0) - intersect).normalize
+	
+	offset = intersect + normal * 1e-4
+	
+	light_distances = world.map { |obj| obj.intersect(offset, light_dir) }
+	light_nearest = light_distances.min
+	light_visible = light_distances[world.index(nearest_obj).not_nil!] == light_nearest
+	
+	lv = Math.max(0.0, normal.dot(light_dir))
+	color += nearest_obj.color * lv * (light_visible ? 1.0 : 0.0)
+	
+	if nearest_obj.reflect > 0 && depth < MAX_DEPTH
+		reflect_ray_dir = (ray_dir - normal * 2.0 * ray_dir.dot(normal)).normalize
+		color += raytrace(offset, reflect_ray_dir, world, depth + 1) * nearest_obj.reflect
+	end
+	
+	phong = normal.dot((light_dir + origin_dir).normalize)
+	color += test_light.color * (phong.clamp(0.0, 1.0) ** 50) * (light_visible ? 1.0 : 0.0)
+	
+	return color
 end
 
 def render(world)
@@ -113,7 +141,7 @@ def render(world)
 			ray_dir = Vec3.new(x, y, 1).normalize
 			
 			color = raytrace(ray_orig, ray_dir, world)
-			image[col, row] = RGBA.from_rgb(*color.components.map{|c| c * 255})
+			image[col, row] = RGBA.from_rgb(*color.components.map{|c| c.clamp(0.0, 1.0) * 255})
 		end
 	end
 	
@@ -121,7 +149,9 @@ def render(world)
 end
 
 world = [
-	Sphere.new(Vec3.new(0, 0, 20), 4, Color.new(1, 0, 0), 0)
+	Sphere.new(Vec3.new(0, -10004, 20), 10000, Color.new(0.25), 0),
+	Sphere.new(Vec3.new(0, 0, 20), 4, Color.new(1, 0, 0), 0.2),
+	Sphere.new(Vec3.new(6, -1, 20), 2, Color.new(0, 0, 1), 0.2),
 ]
 
 render(world)
