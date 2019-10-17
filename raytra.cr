@@ -15,7 +15,7 @@ class Vec3
 	def initialize(@x : Float64, @y : Float64, @z : Float64)
 	end
 	def initialize(v : Float64)
-		@x, @y, @z = v, v, v
+		@x = @y = @z = v
 	end
 	
 	def +(vec : Vec3)
@@ -34,7 +34,7 @@ class Vec3
 		Vec3.new(-x, -y, -z)
 	end
 	def abs
-		self.dot(self)
+		dot(self)
 	end
 	def components
 		{x, y, z}
@@ -69,6 +69,16 @@ class Sphere
 	end
 	def normal(intersect)
 		(intersect - center) / radius
+	end
+	def color(intersect)
+		color
+	end
+end
+
+class CheckeredSphere < Sphere
+	def color(intersect)
+		checker = (intersect.x.floor % 2) == (intersect.z.floor % 2)
+		color * (checker ? 1.0 : 0.0)
 	end
 end
 
@@ -112,7 +122,7 @@ def raytrace(ray_orig, ray_dir, world, depth = 0)
 	light_visible = light_distances[world.index(nearest_obj).not_nil!] == light_nearest
 	
 	lv = Math.max(0.0, normal.dot(light_dir))
-	color += nearest_obj.color * lv * (light_visible ? 1.0 : 0.0)
+	color += nearest_obj.color(intersect) * lv if light_visible
 	
 	if nearest_obj.reflect > 0 && depth < MAX_DEPTH
 		reflect_ray_dir = (ray_dir - normal * 2.0 * ray_dir.dot(normal)).normalize
@@ -120,7 +130,7 @@ def raytrace(ray_orig, ray_dir, world, depth = 0)
 	end
 	
 	phong = normal.dot((light_dir + origin_dir).normalize)
-	color += test_light.color * (phong.clamp(0.0, 1.0) ** 50) * (light_visible ? 1.0 : 0.0)
+	color += test_light.color * (phong.clamp(0.0, 1.0) ** 50) if light_visible
 	
 	return color
 end
@@ -149,7 +159,7 @@ def render(world)
 end
 
 world = [
-	Sphere.new(Vec3.new(0, -10004, 20), 10000, Color.new(0.25), 0),
+	CheckeredSphere.new(Vec3.new(0, -10004, 20), 10000, Color.new(0.25), 0.2),
 	Sphere.new(Vec3.new(0, 0, 20), 4, Color.new(1, 0, 0), 0.2),
 	Sphere.new(Vec3.new(6, -1, 20), 2, Color.new(0, 0, 1), 0.2),
 ]
