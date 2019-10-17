@@ -24,6 +24,9 @@ class Vec3
 	def -(vec : Vec3)
 		Vec3.new(x - vec.x, y - vec.y, z - vec.z)
 	end
+	def *(color : Vec3)
+		Vec3.new(x * color.x, y * color.y, z * color.z)
+	end
 	def *(fac : Float64)
 		Vec3.new(x * fac, y * fac, z * fac)
 	end
@@ -122,7 +125,7 @@ def raytrace(ray_orig, ray_dir, world, depth = 0)
 	light_visible = light_distances[world.index(nearest_obj).not_nil!] == light_nearest
 	
 	lv = Math.max(0.0, normal.dot(light_dir))
-	color += nearest_obj.color(intersect) * lv if light_visible
+	color += nearest_obj.color(intersect) * test_light.color * lv if light_visible
 	
 	if nearest_obj.reflect > 0 && depth < MAX_DEPTH
 		reflect_ray_dir = (ray_dir - normal * 2.0 * ray_dir.dot(normal)).normalize
