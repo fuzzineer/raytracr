@@ -37,7 +37,7 @@ class Vec3
 		Vec3.new(-x, -y, -z)
 	end
 	def abs
-		dot(self)
+		self.dot(self)
 	end
 	def components
 		{x, y, z}
@@ -85,11 +85,7 @@ class CheckeredSphere < Sphere
 	end
 end
 
-struct PointLight
-	property pos, color
-	def initialize(@pos : Vec3, @color : Vec3)
-	end
-end
+record PointLight, pos : Vec3, color : Vec3
 
 def raytrace(ray_orig, ray_dir, world, lights, depth = 0)
 	
