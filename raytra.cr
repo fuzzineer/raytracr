@@ -89,8 +89,8 @@ record PointLight, pos : Vec3, color : Vec3
 
 def raytrace(ray_orig, ray_dir, world, lights, depth = 0)
 	
-	obj_distances = world.map { |s| {s, s.intersect(ray_orig, ray_dir)} }
-	nearest_obj, min_dist = obj_distances.min_by{ |o, d| d }
+	obj_distances = world.map { |obj| {obj, obj.intersect(ray_orig, ray_dir)} }
+	nearest_obj, min_dist = obj_distances.min_by{ |obj, dist| dist }
 	
 	return SKY_COLOR * (1 - ray_dir.y) ** 3 if min_dist >= 1e8
 	
