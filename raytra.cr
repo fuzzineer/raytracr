@@ -6,7 +6,7 @@ include StumpyPNG
 WIDTH = 640
 HEIGHT = 480
 MAX_DEPTH = 5
-BACKGROUND_COLOR = Color.new(0.5)
+SKY_COLOR = Color.new(0.4,0.8,1)
 FOV = 30
 # ------------------------------------
 
@@ -33,7 +33,7 @@ class Vec3
 	def /(fac : Float64)
 		Vec3.new(x / fac, y / fac, z / fac)
 	end
-	def -
+	def - # NOTE: CURRENTLY UNUSED
 		Vec3.new(-x, -y, -z)
 	end
 	def abs
@@ -44,7 +44,7 @@ class Vec3
 	end
 	def normalize
 		mag = Math.sqrt(self.abs)
-		Vec3.new(x / mag, y / mag, z / mag)
+		self / mag
 	end
 	def dot(vec)
 		x * vec.x + y * vec.y + z * vec.z
@@ -68,7 +68,7 @@ class Sphere
 		sq = Math.sqrt(disc)
 		t0 = (-b - sq) / 2
 		t1 = (-b + sq) / 2
-		return t0 < t1 ? t0 : t1
+		return Math.min(t0, t1)
 	end
 	def normal(intersect)
 		(intersect - center) / radius
@@ -89,20 +89,10 @@ record PointLight, pos : Vec3, color : Vec3
 
 def raytrace(ray_orig, ray_dir, world, lights, depth = 0)
 	
-	nearest_obj = nil
-	min_dist = 1e8
+	obj_distances = world.map { |s| {s, s.intersect(ray_orig, ray_dir)} }
+	nearest_obj, min_dist = obj_distances.min_by{ |o, d| d }
 	
-	world.each do |obj|
-		dist = obj.intersect(ray_orig, ray_dir)
-		if dist < min_dist
-			min_dist = dist
-			nearest_obj = obj
-		end
-	end
-	
-	if nearest_obj.nil?
-		return BACKGROUND_COLOR
-	end
+	return SKY_COLOR * (1 - ray_dir.y) ** 3 if min_dist >= 1e8
 	
 	intersect = ray_orig + ray_dir * min_dist
 	normal = nearest_obj.normal(intersect).normalize
@@ -145,28 +135,39 @@ def render(world, lights)
 	
 	(0...HEIGHT).each do |row|
 		(0...WIDTH).each do |col|
-			x = (2 * ((col + 0.5) * (1.0 / WIDTH)) - 1) * angle * aspect_ratio
-			y = (1 - 2 * ((row + 0.5) * (1.0 / HEIGHT))) * angle
+			x = (2 * ((col + 0.5) / WIDTH) - 1) * angle * aspect_ratio
+			y = (1 - 2 * ((row + 0.5) / HEIGHT)) * angle
 			
 			ray_orig = Vec3.new(0, 0, 0)
 			ray_dir = Vec3.new(x, y, 1).normalize
 			
 			color = raytrace(ray_orig, ray_dir, world, lights)
-			image[col, row] = RGBA.from_rgb(*color.components.map{|c| c.clamp(0.0, 1.0) * 255})
+			image[col, row] = RGBA.from_rgb(*color.components.map{ |c| c.clamp(0.0, 1.0) * 255 })
 		end
 	end
 	
 	StumpyPNG.write(image, "out.png")
 end
 
-world = [
-	CheckeredSphere.new(Vec3.new(0, -10004, 20), 10000, Color.new(0.25), 0.2),
-	Sphere.new(Vec3.new(0, 0, 20), 4, Color.new(1, 0, 0), 0.2),
-	Sphere.new(Vec3.new(6, -1, 20), 2, Color.new(0, 0, 1), 0.2),
-]
+world = Array(Sphere).new
+world << CheckeredSphere.new(Vec3.new(0, -10002, 20), 10000, Color.new(0.25), 0.3)
+
+def rainbow_fade(t)
+	{0,2,4}.map { |i| Math.cos(t / Math::PI + i).clamp(0.0, 1.0) }
+end
+
+0.step(to: 25, by: Math::PI / 4) do |t|
+	
+	h = 2**(-0.1 * t) * Math.sin(t/2).abs * 10
+	
+	pos = Vec3.new(t - 14.5, h - 1.35, 37 - t)
+	color = Color.new(*rainbow_fade(t))
+	world << Sphere.new(pos, 0.7, color, 0.3)
+end
+
 lights = [
-	PointLight.new(Vec3.new(0, 20, 10), Color.new(1)),
-	PointLight.new(Vec3.new(20, 20, 10), Color.new(0, 1, 0)),
+	PointLight.new(Vec3.new(-20, 40, 10), Color.new(1)),
+	#PointLight.new(Vec3.new(20, 20, 10), Color.new(0, 1, 0)),
 ]
 
 render(world, lights)
